@@ -1,5 +1,6 @@
 import { useChatStore } from '../stores/useChatStore';
 import { useAuthStore } from '../stores/useAuthStore';
+import { useUIStore } from '../stores/useUIStore';
 
 const statusColors: Record<string, string> = {
   online: '#3ba55c',
@@ -11,6 +12,7 @@ const statusColors: Record<string, string> = {
 export function ServerRail() {
   const { servers, activeServerId, selectServer } = useChatStore();
   const { currentUser } = useAuthStore();
+  const { openModal } = useUIStore();
 
   return (
     <aside className="server-rail">
@@ -27,7 +29,11 @@ export function ServerRail() {
           </button>
         ))}
         <div className="rail-divider" />
-        <button className="server-btn add-btn" title="Add server">
+        <button
+          className="server-btn add-btn"
+          title="Create a server"
+          onClick={() => openModal({ type: 'create-server' })}
+        >
           <span>+</span>
         </button>
       </div>

@@ -1,5 +1,8 @@
+import { useState } from 'react';
 import { useChatStore } from '../stores/useChatStore';
 import { useAuthStore } from '../stores/useAuthStore';
+import { useUIStore } from '../stores/useUIStore';
+import { ContextMenu } from './ContextMenu';
 import type { Channel } from '../types';
 import { USERS } from '../data/mockData';
 
@@ -10,15 +13,26 @@ const statusColors: Record<string, string> = {
   offline: '#747f8d',
 };
 
+interface CtxMenu {
+  x: number;
+  y: number;
+  channelId: string;
+}
+
 export function Sidebar() {
   const {
     getActiveServer,
     dmChannels,
     activeChannelId,
+    activeServerId,
     selectChannel,
     getUser,
+    deleteChannel,
   } = useChatStore();
   const { currentUser, setStatus } = useAuthStore();
+  const { openModal } = useUIStore();
+
+  const [ctxMenu, setCtxMenu] = useState<CtxMenu | null>(null);
 
   const server = getActiveServer();
 
@@ -26,6 +40,13 @@ export function Sidebar() {
     const partnerId = ch.memberIds.find((id) => id !== currentUser.id);
     return partnerId ? getUser(partnerId) : undefined;
   };
+
+  const handleChannelContextMenu = (e: React.MouseEvent, channelId: string) => {
+    e.preventDefault();
+    setCtxMenu({ x: e.clientX, y: e.clientY, channelId });
+  };
+
+  const canDelete = (server?.channels.length ?? 0) > 1;
 
   return (
     <aside className="sidebar">
@@ -37,18 +58,39 @@ export function Sidebar() {
         {/* Server channels */}
         {server && (
           <section className="channel-section">
-            <div className="section-label">Text Channels</div>
+            <div className="section-label-row">
+              <span className="section-label">Text Channels</span>
+              <button
+                className="section-add-btn"
+                title="Create channel"
+                onClick={() => openModal({ type: 'create-channel', serverId: activeServerId })}
+              >
+                +
+              </button>
+            </div>
             {server.channels.map((ch) => (
               <button
                 key={ch.id}
                 className={`channel-item ${activeChannelId === ch.id ? 'active' : ''}`}
                 onClick={() => selectChannel(ch.id)}
+                onContextMenu={(e) => handleChannelContextMenu(e, ch.id)}
               >
                 <span className="ch-hash">#</span>
                 <span className="ch-name">{ch.name}</span>
                 {ch.unread > 0 && (
                   <span className="unread-badge">{ch.unread}</span>
                 )}
+                {/* Edit pencil — visible on hover via CSS */}
+                <span
+                  className="ch-edit-btn"
+                  title="Edit channel"
+                  onClick={(e) => {
+                    e.stopPropagation();
+                    openModal({ type: 'edit-channel', serverId: activeServerId, channelId: ch.id });
+                  }}
+                >
+                  ✏️
+                </span>
               </button>
             ))}
           </section>
@@ -135,6 +177,20 @@ export function Sidebar() {
           <option value="offline">⚫ Offline</option>
         </select>
       </div>
+
+      {/* Right-click context menu */}
+      {ctxMenu && server && (
+        <ContextMenu
+          x={ctxMenu.x}
+          y={ctxMenu.y}
+          canDelete={canDelete}
+          onEdit={() =>
+            openModal({ type: 'edit-channel', serverId: activeServerId, channelId: ctxMenu.channelId })
+          }
+          onDelete={() => deleteChannel(activeServerId, ctxMenu.channelId)}
+          onClose={() => setCtxMenu(null)}
+        />
+      )}
     </aside>
   );
 }

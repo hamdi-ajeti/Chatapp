@@ -3,6 +3,7 @@ import { Sidebar } from './components/Sidebar';
 import { ChannelHeader } from './components/ChannelHeader';
 import { MessageList } from './components/MessageList';
 import { MessageInput } from './components/MessageInput';
+import { Modal } from './components/Modal';
 import './styles.css';
 
 function App() {
@@ -15,6 +16,7 @@ function App() {
         <MessageList />
         <MessageInput />
       </main>
+      <Modal />
     </div>
   );
 }

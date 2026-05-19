@@ -25,6 +25,12 @@ interface ChatState {
   sendMessage: (content: string, authorId: string, imageUrl?: string) => void;
   addReaction: (channelId: string, messageId: string, emoji: string, userId: string) => void;
   markChannelRead: (channelId: string) => void;
+
+  // Server / channel management
+  addServer: (name: string, icon: string) => void;
+  addChannel: (serverId: string, name: string, description?: string) => void;
+  editChannel: (serverId: string, channelId: string, name: string, description?: string) => void;
+  deleteChannel: (serverId: string, channelId: string) => void;
 }
 
 export const useChatStore = create<ChatState>()(
@@ -149,6 +155,84 @@ export const useChatStore = create<ChatState>()(
             ch.id === channelId ? { ...ch, unread: 0 } : ch
           ),
         }), false, 'chat/markChannelRead');
+      },
+
+      // ── Server / channel management ──────────────────────────────────
+
+      addServer: (name, icon) => {
+        const newServer: Server = {
+          id: `server-${Date.now()}`,
+          name,
+          icon,
+          memberIds: ['u1'],
+          channels: [
+            {
+              id: `ch-${Date.now()}`,
+              name: 'general',
+              type: 'text',
+              description: 'General chat',
+              memberIds: ['u1'],
+              messages: [],
+              unread: 0,
+            },
+          ],
+        };
+        set((state) => ({
+          servers: [...state.servers, newServer],
+          activeServerId: newServer.id,
+          activeChannelId: newServer.channels[0].id,
+        }), false, 'chat/addServer');
+      },
+
+      addChannel: (serverId, name, description) => {
+        const newChannel: Channel = {
+          id: `ch-${Date.now()}`,
+          name: name.toLowerCase().replace(/\s+/g, '-'),
+          type: 'text',
+          description,
+          memberIds: get().servers.find((s) => s.id === serverId)?.memberIds ?? [],
+          messages: [],
+          unread: 0,
+        };
+        set((state) => ({
+          servers: state.servers.map((s) =>
+            s.id !== serverId ? s : { ...s, channels: [...s.channels, newChannel] }
+          ),
+          activeChannelId: newChannel.id,
+        }), false, 'chat/addChannel');
+      },
+
+      editChannel: (serverId, channelId, name, description) => {
+        set((state) => ({
+          servers: state.servers.map((s) =>
+            s.id !== serverId ? s : {
+              ...s,
+              channels: s.channels.map((ch) =>
+                ch.id !== channelId ? ch : {
+                  ...ch,
+                  name: name.toLowerCase().replace(/\s+/g, '-'),
+                  description,
+                }
+              ),
+            }
+          ),
+        }), false, 'chat/editChannel');
+      },
+
+      deleteChannel: (serverId, channelId) => {
+        const server = get().servers.find((s) => s.id === serverId);
+        if (!server || server.channels.length <= 1) return; // always keep at least one channel
+
+        const remaining = server.channels.filter((ch) => ch.id !== channelId);
+        const { activeChannelId } = get();
+
+        set((state) => ({
+          servers: state.servers.map((s) =>
+            s.id !== serverId ? s : { ...s, channels: remaining }
+          ),
+          // If the deleted channel was active, fall back to the first remaining one
+          activeChannelId: activeChannelId === channelId ? remaining[0].id : activeChannelId,
+        }), false, 'chat/deleteChannel');
       },
     }),
     { name: 'ChatStore' }
